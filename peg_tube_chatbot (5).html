@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PEG 튜브 관리 도우미</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            animation: slideUp 0.8s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px 25px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="40" r="3" fill="rgba(255,255,255,0.1)"/><circle cx="40" cy="80" r="1" fill="rgba(255,255,255,0.1)"/></svg>');
+            animation: float 20s infinite linear;
+        }
+        
+        @keyframes float {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        
+        .header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .chat-container {
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .quick-menu {
+            background: #f8fafc;
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .quick-menu h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .quick-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        
+        .quick-btn {
+            background: white;
+            border: 2px solid #e2e8f0;
+            padding: 15px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+            font-size: 0.9em;
+            color: #4a5568;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .quick-btn:hover {
+            border-color: #4facfe;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 172, 254, 0.15);
+            color: #2d3748;
+        }
+        
+        .quick-btn .icon {
+            font-size: 1.2em;
+            margin-right: 8px;
+        }
+        
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        
+        .message {
+            margin-bottom: 20px;
+            animation: messageSlide 0.5s ease-out;
+        }
+        
+        @keyframes messageSlide {
+            from {
+                transform: translateX(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .message.user {
+            text-align: right;
+        }
+        
+        .message.bot {
+            text-align: left;
+        }
+        
+        .message-content {
+            display: inline-block;
+            max-width: 80%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            font-size: 0.95em;
+            line-height: 1.5;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        
+        .message.user .message-content {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .message.bot .message-content {
+            background: white;
+            color: #2d3748;
+            border: 1px solid #e2e8f0;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .input-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            font-size: 1em;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        
+        .message-input:focus {
+            border-color: #4facfe;
+        }
+        
+        .send-btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            transition: transform 0.2s ease;
+            box-shadow: 0 4px 12px rgba(79, 172, 254, 0.3);
+        }
+        
+        .send-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .send-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .emergency-banner {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%);
+            color: white;
+            padding: 15px 25px;
+            text-align: center;
+            font-weight: bold;
+            border-radius: 10px;
+            margin: 20px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        
+        .footer {
+            background: #2d3748;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        
+        .typing-indicator {
+            display: none;
+            padding: 15px 20px;
+            background: white;
+            border-radius: 20px;
+            border-bottom-left-radius: 5px;
+            max-width: 80px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .typing-dots span {
+            width: 8px;
+            height: 8px;
+            background: #cbd5e0;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                background: #cbd5e0;
+            }
+            30% {
+                transform: translateY(-10px);
+                background: #4facfe;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .chat-container {
+                flex: 1;
+            }
+            
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .quick-buttons {
+                grid-template-columns: 1fr;
+            }
+            
+            .message-content {
+                max-width: 90%;
+            }
+        }
+        
+        .highlight {
+            background: linear-gradient(120deg, #a8edea 0%, #fed6e3 100%);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 PEG 튜브 관리 도우미</h1>
+            <p>언제든지 궁금한 것을 물어보세요. 24시간 도움을 드립니다.</p>
+        </div>
+        
+        <div class="emergency-banner">
+            🚨 응급상황 시 즉시 병원으로 연락하세요! 응급실: 119
+        </div>
+        
+        <div class="chat-container">
+            <div class="quick-menu">
+                <h3>💡 자주 묻는 질문</h3>
+                <div class="quick-buttons">
+                    <button class="quick-btn" data-question="PEG 튜브 주변 피부 관리 방법을 알려주세요">
+                        <span class="icon">🧼</span>
+                        일상 관리 방법
+                    </button>
+                    <button class="quick-btn" data-question="PEG 튜브가 막혔을 때 어떻게 해야 하나요?">
+                        <span class="icon">🔧</span>
+                        막힘 해결법
+                    </button>
+                    <button class="quick-btn" data-question="PEG 튜브가 빠졌어요. 어떻게 해야 하나요?">
+                        <span class="icon">⚠️</span>
+                        응급상황 대처
+                    </button>
+                    <button class="quick-btn" data-question="병원에 언제 가야 하나요?">
+                        <span class="icon">🏥</span>
+                        병원 방문 시기
+                    </button>
+                    <button class="quick-btn" data-question="PEG 튜브 교체는 언제 하나요?">
+                        <span class="icon">🔄</span>
+                        교체 시기
+                    </button>
+                    <button class="quick-btn" data-question="영양액 주입 후 관리법을 알려주세요">
+                        <span class="icon">🍼</span>
+                        영양 관리
+                    </button>
+                </div>
+            </div>
+            
+            <div class="messages" id="messages">
+                <div class="message bot">
+                    <div class="message-content">
+                        안녕하세요! 👋<br><br>
+                        저는 <span class="highlight">PEG 튜브 관리 전문 도우미</span>입니다.<br><br>
+                        PEG 튜브 관리와 관련된 모든 궁금증을 해결해드릴게요. 위의 버튼을 눌러 자주 묻는 질문을 확인하거나, 직접 질문을 입력해주세요! 🎯
+                    </div>
+                </div>
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <div class="input-container">
+                    <input type="text" class="message-input" id="messageInput" placeholder="궁금한 것을 물어보세요..." maxlength="200">
+                    <button class="send-btn" id="sendButton">
+                        ➤
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            💡 이 정보는 의료진의 진료를 대체할 수 없습니다. 심각한 증상이 있으면 즉시 의료진에게 연락하세요.
+        </div>
+    </div>
+
+    <script>
+        function addMessage(message, sender) {
+            const messagesContainer = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.innerHTML = message.replace(/\n/g, '<br>');
+            
+            messageDiv.appendChild(contentDiv);
+            messagesContainer.insertBefore(messageDiv, document.getElementById('typingIndicator'));
+            
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            indicator.style.display = 'block';
+            
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            indicator.style.display = 'none';
+        }
+
+        function findBestAnswer(question) {
+            const q = question.toLowerCase();
+            
+            if (q.includes('피부') || q.includes('관리') || q.includes('씻') || q.includes('청결')) {
+                return `🧼 <strong>PEG 튜브 주변 피부 관리법</strong><br><br>
+
+<strong>일일 관리:</strong><br>
+• 하루 <strong>최소 2회</strong> 깨끗한 천과 수돗물로 삽입 부위 청소<br>
+• 플라스틱 디스크 아래까지 꼼꼼히 씻기<br>
+• 완전히 건조시키기<br><br>
+
+<strong>중요 포인트:</strong><br>
+• 삽입 <strong>3-5일 후</strong>부터 매일 튜브를 완전히 돌려주기<br>
+• 외부 고정자는 피부에서 <strong>1-2cm 떨어뜨려</strong> 위치<br>
+• 샤워 가능하지만 삽입 부위는 <strong>투명 필름으로 보호</strong><br><br>
+
+⚠️ <strong>주의:</strong> 통목욕은 금지, 젖었다면 즉시 소독하세요!`;
+            }
+            
+            if (q.includes('막') || q.includes('막힘') || q.includes('뚫') || q.includes('안나와')) {
+                return `🔧 <strong>PEG 튜브 막힘 해결법</strong><br><br>
+
+<strong>즉시 확인사항:</strong><br>
+1️⃣ 튜브 클램프가 <strong>열려있는지</strong> 확인<br>
+2️⃣ <strong>절대 강제로</strong> 영양액이나 약물 주입 금지<br><br>
+
+<strong>해결 방법:</strong><br>
+• <strong>60ml 큰 주사기</strong>에 따뜻한 물을 채워 세척<br>
+• 막힘이 해결되지 않으면 <strong>의사에게 즉시 연락</strong><br>
+• 탄산음료도 도움이 될 수 있음<br><br>
+
+<strong>예방법:</strong><br>
+• 매일 <strong>20-50ml 수돗물</strong> 주입으로 예방<br>
+• 약물 투여 후 반드시 <strong>물로 세척</strong><br><br>
+
+🚨 <strong>주의:</strong> 강제로 밀어넣지 마세요!`;
+            }
+            
+            if (q.includes('빠') || q.includes('이탈') || q.includes('뽑') || q.includes('떨어')) {
+                return `⚠️ <strong>PEG 튜브 이탈 응급 대처법</strong><br><br>
+
+<strong>즉시 해야 할 일:</strong><br>
+1️⃣ <strong>즉시 튜브를 다시 밀어넣기</strong><br>
+2️⃣ <strong>바로 응급실로 이동</strong><br><br>
+
+⏰ <strong>시간이 생명:</strong><br>
+몇 분만 지체되어도 복벽의 삽입 부위(트랙)가 막혀서 기존 구멍을 사용하기 어려워집니다!<br><br>
+
+📞 <strong>응급연락처:</strong><br>
+• 응급실: <strong>119</strong><br>
+• 담당 의료진에게 즉시 연락<br><br>
+
+🚨 <strong>절대 지체하지 마세요!</strong> 시간이 매우 중요합니다.`;
+            }
+            
+            if (q.includes('병원') || q.includes('방문') || q.includes('언제') || q.includes('가야')) {
+                return `🏥 <strong>병원 방문이 필요한 상황</strong><br><br>
+
+<strong>즉시 병원에 가야 하는 경우:</strong><br>
+🔴 <strong>응급상황:</strong><br>
+• PEG 튜브가 빠졌을 때<br>
+• 발열이 있을 때<br>
+• 심한 복통, 구토가 지속될 때<br>
+• 호흡곤란, 가슴 통증<br>
+• 위장관 출혈 (붉은색/검은색 혈액, 커피찌꺼기 같은 구토)<br><br>
+
+🟡 <strong>빠른 진료가 필요한 경우:</strong><br>
+• 설사나 변비가 지속될 때<br>
+• 튜브가 막혔을 때<br>
+• 위루관이 찢어지거나 새기 시작할 때<br>
+• 평소보다 위 잔여물이 많이 나올 때<br><br>
+
+📞 <strong>연락처:</strong> 응급실 119 / 담당 의료진`;
+            }
+            
+            if (q.includes('교체') || q.includes('바꿔') || q.includes('갈아')) {
+                return `🔄 <strong>PEG 튜브 교체 시기</strong><br><br>
+
+<strong>튜브 종류별 교체 주기:</strong><br><br>
+
+<strong>내부고정자형:</strong><br>
+• 문제가 없다면 <strong>주기적 교체 불필요</strong><br>
+• 적절히 관리 시 <strong>1-2년</strong> 유지 가능<br><br>
+
+<strong>풍선형:</strong><br>
+• <strong>3-6개월</strong> 간격으로 교체<br>
+• 7-10일마다 풍선 내부 증류수 교체 필요<br><br>
+
+<strong>즉시 교체가 필요한 경우:</strong><br>
+• 튜브 파손, 폐색, 이탈<br>
+• 변성이 일어난 경우<br>
+• 주위 누출이 지속될 때<br><br>
+
+💡 <strong>참고:</strong> 실리콘 튜브가 폴리우레탄보다 수명이 길어요!`;
+            }
+            
+            if (q.includes('영양') || q.includes('주입') || q.includes('먹이') || q.includes('식사')) {
+                return `🍼 <strong>영양액 주입 후 관리법</strong><br><br>
+
+<strong>주입 전 준비:</strong><br>
+• 손 깨끗이 씻기<br>
+• 영양액 온도 확인 (실온 정도)<br>
+• 튜브 막힘 여부 확인<br><br>
+
+<strong>주입 후 필수 관리:</strong><br>
+• 반드시 <strong>20-50ml 수돗물</strong>로 튜브 세척<br>
+• 영양액과 약물을 <strong>절대 섞지 말기</strong><br>
+• 주입 속도는 <strong>천천히</strong> (1시간에 100-150ml)<br><br>
+
+<strong>예방 관리:</strong><br>
+• 영양액을 주입하지 않는 날에도 <strong>매일 물 주입</strong><br>
+• 6개월 미만 영아나 면역억제 환자는 <strong>끓인 물</strong> 사용<br><br>
+
+⚠️ <strong>주의:</strong> 약물 투여 시 충분히 용해 후 물로 세척하세요!`;
+            }
+            
+            if (q.includes('안녕') || q.includes('안뇽') || q.includes('hello') || q.includes('hi')) {
+                return `안녕하세요! 👋 PEG 튜브 관리 도우미입니다.<br><br>
+
+궁금한 점이 있으시면 언제든 물어보세요:<br>
+• 일상 관리 방법<br>
+• 응급상황 대처<br>
+• 병원 방문 시기<br>
+• 튜브 교체 관련<br>
+• 영양 관리법<br><br>
+
+위의 버튼을 눌러도 되고, 직접 질문을 입력해주셔도 됩니다! 😊`;
+            }
+            
+            if (q.includes('고마') || q.includes('감사') || q.includes('thank')) {
+                return `천만에요! 😊 도움이 되셨다니 다행입니다.<br><br>
+
+PEG 튜브 관리에 대해 추가로 궁금한 점이 있으시면 언제든 말씀해주세요. 항상 여기서 도움을 드릴 준비가 되어 있어요!<br><br>
+
+🏥 <strong>중요:</strong> 심각한 증상이나 응급상황에서는 즉시 의료진에게 연락하세요.`;
+            }
+            
+            return `죄송합니다. 해당 질문에 대한 구체적인 정보를 찾을 수 없습니다. 😔<br><br>
+
+<strong>다음과 같은 주제에 대해 도움을 드릴 수 있어요:</strong><br>
+• 🧼 일상 관리 방법<br>
+• 🔧 막힘 해결법<br>
+• ⚠️ 응급상황 대처<br>
+• 🏥 병원 방문 시기<br>
+• 🔄 교체 시기<br>
+• 🍼 영양 관리<br><br>
+
+위의 버튼을 눌러보시거나 더 구체적으로 질문해주세요!<br><br>
+
+🏥 <strong>중요:</strong> 응급상황이나 심각한 증상이 있으시면 즉시 의료진에게 연락하세요.`;
+        }
+
+        function sendQuickMessage(message) {
+            addMessage(message, 'user');
+            showTypingIndicator();
+            
+            setTimeout(() => {
+                hideTypingIndicator();
+                const answer = findBestAnswer(message);
+                addMessage(answer, 'bot');
+            }, 1500);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message === '') return;
+            
+            addMessage(message, 'user');
+            input.value = '';
+            showTypingIndicator();
+            
+            setTimeout(() => {
+                hideTypingIndicator();
+                const answer = findBestAnswer(message);
+                addMessage(answer, 'bot');
+            }, 1500);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('messageInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+
+            document.getElementById('sendButton').addEventListener('click', sendMessage);
+
+            document.querySelectorAll('.quick-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const question = this.getAttribute('data-question');
+                    sendQuickMessage(question);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

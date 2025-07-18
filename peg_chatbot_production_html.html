@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PEG 케어 도우미 - 경피적 위루술 환자 챗봇</title>
+    <meta name="description" content="경피적 위루술 환자와 보호자를 위한 24시간 케어 정보 제공 챗봇">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .chat-container {
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+        .typing-animation {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #3b82f6;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        .typing-animation:nth-child(1) { animation-delay: -0.32s; }
+        .typing-animation:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .search-result {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .search-result:hover {
+            background-color: #dbeafe;
+            transform: translateY(-1px);
+        }
+        
+        .message-user {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border-radius: 18px 18px 4px 18px;
+        }
+        
+        .message-bot {
+            background: white;
+            color: #374151;
+            border-radius: 18px 18px 18px 4px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .search-input {
+            border-radius: 25px;
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .search-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .send-button {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        
+        .send-button:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .quick-button {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .quick-button:hover {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script>
+        // React 및 컴포넌트 생성
+        const { useState, useEffect, useRef, createElement: h } = React;
+
+        // 아이콘 SVG 문자열들
+        const icons = {
+            send: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>`,
+            volume: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 14.142M8.5 6L4 10H1v4h3l4.5 4V6z" /></svg>`,
+            volumeOff: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>`,
+            book: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>`,
+            phone: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>`,
+            chevronUp: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>`,
+            pause: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`
+        };
+
+        // 질의응답 데이터베이스
+        const qaDatabase = {
+            procedure: {
+                title: "시술 관련",
+                icon: "🏥",
+                questions: [
+                    {
+                        q: "경피적 위루술이 무엇인가요?",
+                        a: "경피적 위루술(PEG)은 배 앞쪽 피부를 통해 위에 관을 넣어 영양을 공급하는 방법입니다. 입으로 음식을 먹기 어려운 환자분들을 위한 안전한 치료 방법입니다.",
+                        keywords: ["경피적", "위루술", "PEG", "정의", "무엇"]
+                    },
+                    {
+                        q: "시술 전에 어떤 준비가 필요한가요?",
+                        a: "시술 전 8시간 이상 금식해야 합니다. 혈액검사를 통해 출혈 위험성을 확인하고, 항생제를 미리 투여합니다. 편안한 옷을 입고 오시면 됩니다.",
+                        keywords: ["준비", "금식", "검사", "시술전"]
+                    },
+                    {
+                        q: "시술 시간은 얼마나 걸리나요?",
+                        a: "일반적으로 30분에서 1시간 정도 소요됩니다. 환자분의 상태에 따라 시간은 달라질 수 있습니다.",
+                        keywords: ["시간", "소요", "걸리는", "얼마나"]
+                    },
+                    {
+                        q: "시술 후 언제부터 음식을 먹을 수 있나요?",
+                        a: "시술 후 4-6시간 후부터 물이나 유동식을 천천히 시작할 수 있습니다. 의료진의 지시에 따라 단계적으로 양을 늘려갑니다.",
+                        keywords: ["음식", "식사", "언제부터", "시술후"]
+                    },
+                    {
+                        q: "시술 후 입원 기간은 얼마나 되나요?",
+                        a: "일반적으로 1-2일 정도 입원합니다. 환자분의 회복 상태와 합병증 유무에 따라 기간이 달라질 수 있습니다.",
+                        keywords: ["입원", "기간", "며칠", "언제"]
+                    }
+                ]
+            },
+            tubecare: {
+                title: "튜브 관리",
+                icon: "🔧",
+                questions: [
+                    {
+                        q: "튜브 주변 피부는 어떻게 관리하나요?",
+                        a: "하루 1-2회 깨끗한 물과 순한 비누로 튜브 주변을 부드럽게 닦아주세요. 알코올이나 자극적인 소독제는 피하고, 완전히 건조시킨 후 거즈로 보호해주세요.",
+                        keywords: ["피부", "관리", "세척", "소독", "거즈"]
+                    },
+                    {
+                        q: "튜브가 빠지면 어떻게 해야 하나요?",
+                        a: "튜브가 빠지면 즉시 병원 응급실로 오세요. 구멍이 빠르게 막힐 수 있어 빠른 처치가 중요합니다. 튜브 끝을 깨끗한 거즈로 덮어서 가져오세요.",
+                        keywords: ["빠짐", "응급", "즉시", "병원"]
+                    },
+                    {
+                        q: "튜브 막힘을 예방하려면 어떻게 해야 하나요?",
+                        a: "식사 전후에 미지근한 물 20-30ml로 튜브를 씻어주세요. 약물 투여 후에도 반드시 물로 씻어주고, 농도가 진한 영양액은 물로 희석해서 사용하세요.",
+                        keywords: ["막힘", "예방", "세척", "물", "씻기"]
+                    },
+                    {
+                        q: "튜브 고정은 어떻게 하나요?",
+                        a: "튜브가 당겨지지 않도록 복대나 의료용 테이프로 고정해주세요. 너무 조이면 혈액순환에 문제가 생기니 적당한 여유를 두세요.",
+                        keywords: ["고정", "복대", "테이프", "당김"]
+                    },
+                    {
+                        q: "튜브 주변에 분비물이 나와요",
+                        a: "초기 1-2주 동안은 소량의 분비물이 정상입니다. 깨끗한 거즈로 닦아주고, 노란색이나 냄새가 나면 병원에 연락하세요.",
+                        keywords: ["분비물", "진물", "고름", "냄새"]
+                    },
+                    {
+                        q: "튜브 회전은 어떻게 하나요?",
+                        a: "수술 후 2주가 지나면 매일 튜브를 360도 천천히 돌려주세요. 튜브가 피부에 달라붙는 것을 방지하고 감염을 예방합니다.",
+                        keywords: ["회전", "돌리기", "360도", "매일"]
+                    }
+                ]
+            },
+            nutrition: {
+                title: "영양 관리",
+                icon: "🍽️",
+                questions: [
+                    {
+                        q: "어떤 음식을 넣을 수 있나요?",
+                        a: "의료진이 처방한 전용 영양액을 사용하는 것이 가장 안전합니다. 집에서 만든 음식은 반드시 갈아서 걸러낸 후 사용하고, 의료진과 상의하세요.",
+                        keywords: ["음식", "영양액", "처방", "갈아서"]
+                    },
+                    {
+                        q: "하루에 몇 번, 얼마나 먹여야 하나요?",
+                        a: "일반적으로 하루 4-6회, 한 번에 200-400ml 정도 천천히 주입합니다. 환자분의 상태에 따라 다르므로 의료진의 지시를 따라주세요.",
+                        keywords: ["횟수", "양", "하루", "몇번"]
+                    },
+                    {
+                        q: "영양액 온도는 어떻게 해야 하나요?",
+                        a: "체온 정도(36-37도)로 미지근하게 데워서 주입하세요. 너무 차가우면 복통이 생기고, 너무 뜨거우면 화상을 입을 수 있습니다.",
+                        keywords: ["온도", "미지근", "체온", "데우기"]
+                    },
+                    {
+                        q: "영양액 보관은 어떻게 하나요?",
+                        a: "개봉 전에는 실온에서 보관하고, 개봉 후에는 냉장고에 넣어 24시간 이내에 사용하세요. 상온에서 2시간 이상 방치하면 세균이 번식할 수 있습니다.",
+                        keywords: ["보관", "냉장고", "개봉", "세균"]
+                    },
+                    {
+                        q: "약물은 어떻게 투여하나요?",
+                        a: "가능하면 액체 형태의 약을 사용하세요. 알약은 으깨서 물에 완전히 녹인 후 투여하고, 약물 전후에 물로 튜브를 씻어주세요.",
+                        keywords: ["약물", "알약", "으깨서", "액체"]
+                    },
+                    {
+                        q: "영양액 주입 속도는 어떻게 조절하나요?",
+                        a: "천천히 주입하는 것이 중요합니다. 너무 빠르면 구토나 복통이 생길 수 있어요. 1ml당 1-2초 정도로 천천히 주입하세요.",
+                        keywords: ["속도", "천천히", "주입", "빠르게"]
+                    }
+                ]
+            },
+            emergency: {
+                title: "응급 상황",
+                icon: "🚨",
+                questions: [
+                    {
+                        q: "어떤 증상이 나타나면 병원에 와야 하나요?",
+                        a: "발열(38.5도 이상), 튜브 주변 심한 붓기, 고름, 심한 통증, 지속적인 출혈, 계속되는 구토, 복통이 있으면 즉시 병원에 오세요.",
+                        keywords: ["응급", "발열", "출혈", "통증", "병원"]
+                    },
+                    {
+                        q: "구토가 날 때는 어떻게 해야 하나요?",
+                        a: "즉시 영양 공급을 중단하고, 환자를 옆으로 눕혀주세요. 구토물이 기도로 들어가지 않도록 주의하고, 계속 구토하면 병원에 연락하세요.",
+                        keywords: ["구토", "중단", "옆으로", "기도"]
+                    },
+                    {
+                        q: "튜브에서 피가 나면 어떻게 해야 하나요?",
+                        a: "소량의 피는 정상일 수 있지만, 계속 피가 나거나 양이 많으면 즉시 병원에 오세요. 깨끗한 거즈로 가볍게 눌러주고 병원에 연락하세요.",
+                        keywords: ["출혈", "피", "거즈", "눌러"]
+                    },
+                    {
+                        q: "감염 징후는 무엇인가요?",
+                        a: "튜브 주변이 빨갛게 붓고, 열이 나며, 고름이 나오거나 냄새가 나면 감염 징후입니다. 즉시 병원에 와서 치료받으세요.",
+                        keywords: ["감염", "붓기", "고름", "냄새", "열"]
+                    },
+                    {
+                        q: "튜브가 막혔을 때 응급처치는?",
+                        a: "미지근한 물로 부드럽게 밀어보세요. 절대 억지로 밀지 마시고, 뚫리지 않으면 즉시 병원에 연락하세요. 철사나 다른 도구는 사용하지 마세요.",
+                        keywords: ["막힘", "응급처치", "미지근한물", "억지로"]
+                    },
+                    {
+                        q: "응급실에 갈 때 준비할 것은?",
+                        a: "진료 기록, 복용 중인 약물 리스트, 보험카드, 튜브 관련 용품을 가져가세요. 가능하면 언제부터 증상이 시작되었는지 메모해두세요.",
+                        keywords: ["응급실", "준비", "진료기록", "약물리스트"]
+                    }
+                ]
+            },
+            daily: {
+                title: "일상생활",
+                icon: "🏠",
+                questions: [
+                    {
+                        q: "목욕은 어떻게 해야 하나요?",
+                        a: "튜브 부위에 물이 들어가지 않도록 방수 패치로 보호하고 샤워하세요. 목욕탕에서 몸을 담그는 것은 피하고, 샤워 후 튜브 주변을 잘 말려주세요.",
+                        keywords: ["목욕", "샤워", "방수", "패치"]
+                    },
+                    {
+                        q: "운동이나 활동은 어느 정도 할 수 있나요?",
+                        a: "가벼운 산책이나 스트레칭은 가능하지만, 튜브가 당겨지거나 압박받을 수 있는 격한 운동은 피하세요. 의료진과 상의해서 적절한 활동 수준을 정하세요.",
+                        keywords: ["운동", "활동", "산책", "스트레칭"]
+                    },
+                    {
+                        q: "외출할 때 주의사항은 무엇인가요?",
+                        a: "튜브가 걸리지 않도록 헐렁한 옷을 입고, 응급상황에 대비해 병원 연락처와 간단한 응급용품을 준비하세요. 장거리 여행은 의료진과 상의하세요.",
+                        keywords: ["외출", "옷", "응급용품", "여행"]
+                    },
+                    {
+                        q: "수면 시 주의사항은 무엇인가요?",
+                        a: "튜브가 꺾이거나 당겨지지 않도록 편안한 자세로 주무세요. 베개나 쿠션을 이용해 튜브를 보호하고, 잠자리에서 뒤척일 때 조심하세요.",
+                        keywords: ["수면", "잠", "자세", "베개"]
+                    },
+                    {
+                        q: "옷은 어떤 것을 입어야 하나요?",
+                        a: "튜브가 걸리지 않도록 앞으로 여미는 옷이나 넉넉한 옷을 입으세요. 너무 꽉 끼는 옷은 피하고, 튜브를 압박하지 않도록 주의하세요.",
+                        keywords: ["옷", "의복", "앞여밈", "넉넉한"]
+                    },
+                    {
+                        q: "직장 생활은 언제부터 가능한가요?",
+                        a: "일반적으로 시술 후 1-2주 후부터 가능합니다. 하지만 개인차가 있으므로 의료진과 상의하여 결정하세요. 처음에는 가벼운 업무부터 시작하는 것이 좋습니다.",
+                        keywords: ["직장", "업무", "언제부터", "복귀"]
+                    }
+                ]
+            }
+        };
+
+        // 메인 앱 컴포넌트
+        function PegCareChatbot() {
+            const [messages, setMessages] = useState([]);
+            const [currentInput, setCurrentInput] = useState('');
+            const [isTyping, setIsTyping] = useState(false);
+            const [voiceEnabled, setVoiceEnabled] = useState(false);
+            const [isPlaying, setIsPlaying] = useState(false);
+            const [selectedCategory, setSelectedCategory] = useState('all');
+            const [showQuickGuide, setShowQuickGuide] = useState(false);
+            const [searchResults, setSearchResults] = useState([]);
+            const [isSearching, setIsSearching] = useState(false);
+            const messagesEndRef = useRef(null);
+
+            // 음성 합성 함수
+            const speakText = (text) => {
+                if (voiceEnabled && window.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'ko-KR';
+                    utterance.rate = 0.8;
+                    utterance.pitch = 1.0;
+                    utterance.volume = 1.0;
+                    
+                    utterance.onstart = () => setIsPlaying(true);
+                    utterance.onend = () => setIsPlaying(false);
+                    
+                    window.speechSynthesis.speak(utterance);
+                }
+            };
+
+            // 음성 중지 함수
+            const stopSpeaking = () => {
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                    setIsPlaying(false);
+                }
+            };
+
+            // 검색 함수
+            const searchQuestions = (searchTerm) => {
+                if (!searchTerm.trim()) {
+                    setSearchResults([]);
+                    return;
+                }
+
+                setIsSearching(true);
+                const searchText = searchTerm.toLowerCase();
+                const results = [];
+
+                for (const [categoryKey, category] of Object.entries(qaDatabase)) {
+                    for (const item of category.questions) {
+                        const questionMatch = item.q.toLowerCase().includes(searchText);
+                        const keywordMatch = item.keywords.some(keyword => 
+                            keyword.toLowerCase().includes(searchText) || 
+                            searchText.includes(keyword.toLowerCase())
+                        );
+                        const answerMatch = item.a.toLowerCase().includes(searchText);
+
+                        if (questionMatch || keywordMatch || answerMatch) {
+                            results.push({
+                                ...item,
+                                category: category.title,
+                                categoryKey,
+                                icon: category.icon
+                            });
+                        }
+                    }
+                }
+
+                setTimeout(() => {
+                    setSearchResults(results);
+                    setIsSearching(false);
+                }, 300);
+            };
+
+            // 메시지 전송 함수
+            const sendMessage = (text = currentInput) => {
+                if (!text.trim()) return;
+
+                const userMessage = {
+                    id: Date.now(),
+                    type: 'user',
+                    content: text,
+                    timestamp: new Date()
+                };
+
+                setMessages(prev => [...prev, userMessage]);
+                setCurrentInput('');
+                setSearchResults([]);
+                setIsTyping(true);
+
+                // 검색하여 답변 찾기
+                const searchText = text.toLowerCase();
+                let answer = "죄송합니다. 정확한 답변을 찾지 못했습니다. 다른 방식으로 질문해 주시거나, 담당 의료진에게 문의해 주세요.\n\n📞 응급상황 시: 병원 응급실 (000-000-0000)\n\n💡 검색 팁:\n• '튜브 관리', '영양 공급', '응급상황' 등 구체적인 키워드 사용\n• 증상이나 상황을 자세히 설명해 주세요\n• 빠른 가이드 📖 버튼을 눌러 카테고리별 질문을 확인해보세요";
+                
+                for (const category of Object.values(qaDatabase)) {
+                    for (const item of category.questions) {
+                        const questionMatch = item.q.toLowerCase().includes(searchText);
+                        const keywordMatch = item.keywords.some(keyword => 
+                            keyword.toLowerCase().includes(searchText) || 
+                            searchText.includes(keyword.toLowerCase())
+                        );
+                        
+                        if (questionMatch || keywordMatch) {
+                            answer = item.a;
+                            break;
+                        }
+                    }
+                                            if (answer !== "죄송합니다. 정확한 답변을 찾지 못했습니다. 다른 방식으로 질문해 주시거나, 담당 의료진에게 문의해 주세요.\n\n📞 응급상황 시: 병원 응급실 (000-000-0000)\n\n💡 검색 팁:\n• '튜브 관리', '영양 공급', '응급상황' 등 구체적인 키워드 사용\n• 증상이나 상황을 자세히 설명해 주세요\n• 빠른 가이드 📖 버튼을 눌러 카테고리별 질문을 확인해보세요") break;
+                }
+
+                // 봇 응답 시뮬레이션
+                setTimeout(() => {
+                    const botResponse = {
+                        id: Date.now() + 1,
+                        type: 'bot',
+                        content: answer,
+                        timestamp: new Date()
+                    };
+                    
+                    setMessages(prev => [...prev, botResponse]);
+                    setIsTyping(false);
+                    
+                    // 음성 출력
+                    if (voiceEnabled) {
+                        speakText(botResponse.content);
+                    }
+                }, 1000);
+            };
+
+            // 카테고리별 질문 필터링
+            const getFilteredQuestions = () => {
+                if (selectedCategory === 'all') {
+                    return Object.values(qaDatabase).flatMap(category => 
+                        category.questions.map(q => ({ ...q, category: category.title, icon: category.icon }))
+                    );
+                }
+                return qaDatabase[selectedCategory]?.questions.map(q => ({ ...q, icon: qaDatabase[selectedCategory].icon })) || [];
+            };
+
+            // 메시지 자동 스크롤
+            const scrollToBottom = () => {
+                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            };
+
+            useEffect(() => {
+                scrollToBottom();
+            }, [messages]);
+
+            // 초기 인사말
+            useEffect(() => {
+                const initialMessage = {
+                    id: 1,
+                    type: 'bot',
+                    content: "안녕하세요! 경피적 위루술 환자 케어 도우미입니다. 😊\n\n아래 검색창에 궁금한 내용을 입력하시면 관련 답변을 찾아드릴게요!\n\n💡 검색 예시:\n• '튜브 관리' - 일상적인 관리 방법\n• '영양 공급' - 음식과 영양액 관련\n• '응급상황' - 위험 징후와 대처법\n• '목욕' - 일상생활 주의사항\n\n📖 빠른 가이드 버튼을 눌러 카테고리별 질문도 확인하실 수 있어요!",
+                    timestamp: new Date()
+                };
+                setMessages([initialMessage]);
+            }, []);
+
+            return h('div', { className: "max-w-md mx-auto bg-white min-h-screen flex flex-col" }, [
+                // 헤더
+                h('div', { className: "bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 sticky top-0 z-10 shadow-lg" }, [
+                    h('div', { className: "flex items-center justify-between" }, [
+                        h('div', { className: "flex items-center space-x-3" }, [
+                            h('div', { className: "w-12 h-12 bg-white rounded-full flex items-center justify-center" }, [
+                                h('span', { className: "text-blue-600 font-bold text-xs" }, "병원로고")
+                            ]),
+                            h('div', {}, [
+                                h('h1', { className: "text-lg font-bold" }, "PEG 케어 도우미"),
+                                h('p', { className: "text-xs text-blue-100" }, "경피적 위루술 환자 지원")
+                            ])
+                        ]),
+                        h('div', { className: "flex items-center space-x-2" }, [
+                            h('button', {
+                                onClick: () => {
+                                    if (isPlaying) {
+                                        stopSpeaking();
+                                    } else {
+                                        setVoiceEnabled(!voiceEnabled);
+                                    }
+                                },
+                                className: "p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors",
+                                title: voiceEnabled ? "음성 기능 켜짐" : "음성 기능 꺼짐",
+                                dangerouslySetInnerHTML: { __html: isPlaying ? icons.pause : (voiceEnabled ? icons.volume : icons.volumeOff) }
+                            }),
+                            h('button', {
+                                onClick: () => setShowQuickGuide(!showQuickGuide),
+                                className: "p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors",
+                                title: "빠른 가이드",
+                                dangerouslySetInnerHTML: { __html: icons.book }
+                            })
+                        ])
+                    ])
+                ]),
+
+                // 빠른 가이드
+                showQuickGuide && h('div', { className: "bg-blue-50 p-4 border-b" }, [
+                    h('div', { className: "flex items-center justify-between mb-3" }, [
+                        h('h3', { className: "font-bold text-blue-800" }, "빠른 가이드"),
+                        h('button', {
+                            onClick: () => setShowQuickGuide(false),
+                            className: "text-blue-600 hover:text-blue-800",
+                            dangerouslySetInnerHTML: { __html: icons.chevronUp }
+                        })
+                    ]),
+                    h('div', { className: "space-y-2 mb-3" }, [
+                        h('select', {
+                            value: selectedCategory,
+                            onChange: (e) => setSelectedCategory(e.target.value),
+                            className: "w-full p-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        }, [
+                            h('option', { value: "all" }, "📋 전체 카테고리"),
+                            h('option', { value: "procedure" }, "🏥 시술 관련"),
+                            h('option', { value: "tubecare" }, "🔧 튜브 관리"),
+                            h('option', { value: "nutrition" }, "🍽️ 영양 관리"),
+                            h('option', { value: "emergency" }, "🚨 응급 상황"),
+                            h('option', { value: "daily" }, "🏠 일상생활")
+                        ])
+                    ]),
+                    h('div', { className: "space-y-2 max-h-60 overflow-y-auto" }, 
+                        getFilteredQuestions().map((item, index) =>
+                            h('button', {
+                                key: index,
+                                onClick: () => {
+                                    sendMessage(item.q);
+                                    setShowQuickGuide(false);
+                                },
+                                className: "w-full text-left p-3 bg-white rounded-lg text-sm hover:bg-blue-100 transition-colors border hover:border-blue-300 shadow-sm quick-button"
+                            }, [
+                                h('div', { className: "font-medium text-blue-800" }, item.q),
+                                selectedCategory === 'all' && h('div', { className: "text-xs text-blue-600 mt-1" }, `${item.icon} ${item.category}`)
+                            ])
+                        )
+                    )
+                ]),
+
+                // 메시지 영역
+                h('div', { className: "flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50 chat-container" }, [
+                    ...messages.map((message) =>
+                        h('div', {
+                            key: message.id,
+                            className: `flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} fade-in`
+                        }, [
+                            h('div', {
+                                className: `max-w-xs lg:max-w-md p-4 ${message.type === 'user' ? 'message-user' : 'message-bot'} shadow-md`
+                            }, [
+                                h('div', { className: "whitespace-pre-wrap text-base leading-relaxed" }, message.content),
+                                h('div', { className: "text-xs mt-2 opacity-70" }, 
+                                    message.timestamp.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+                                )
+                            ])
+                        ])
+                    ),
+                    
+                    isTyping && h('div', { className: "flex justify-start fade-in" }, [
+                        h('div', { className: "bg-white p-4 rounded-2xl rounded-bl-md shadow-md border" }, [
+                            h('div', { className: "flex items-center space-x-2" }, [
+                                h('div', { className: "typing-animation" }),
+                                h('div', { className: "typing-animation" }),
+                                h('div', { className: "typing-animation" }),
+                                h('span', { className: "text-sm text-gray-500 ml-2" }, "답변 준비 중...")
+                            ])
+                        ])
+                    ]),
+                    h('div', { ref: messagesEndRef })
+                ]),
+
+                // 입력 영역
+                h('div', { className: "p-4 bg-white border-t relative" }, [
+                    h('div', { className: "flex space-x-2" }, [
+                        h('div', { className: "flex-1 relative" }, [
+                            h('input', {
+                                type: "text",
+                                value: currentInput,
+                                onChange: (e) => {
+                                    setCurrentInput(e.target.value);
+                                    searchQuestions(e.target.value);
+                                },
+                                onKeyPress: (e) => {
+                                    if (e.key === 'Enter') {
+                                        sendMessage();
+                                    }
+                                },
+                                placeholder: "튜브 관리, 영양 공급, 응급상황 등을 검색하세요...",
+                                className: "w-full p-4 pr-12 search-input text-lg outline-none"
+                            }),
+                            currentInput && h('button', {
+                                onClick: () => {
+                                    setCurrentInput('');
+                                    setSearchResults([]);
+                                },
+                                className: "absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            }, "✕")
+                        ]),
+                        h('button', {
+                            onClick: () => sendMessage(),
+                            disabled: !currentInput.trim(),
+                            className: "w-14 h-14 text-white rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg send-button",
+                            dangerouslySetInnerHTML: { __html: icons.send }
+                        })
+                    ]),
+                    
+                    // 검색 결과
+                    (searchResults.length > 0 || isSearching) && h('div', { className: "absolute bottom-full left-4 right-4 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-80 overflow-y-auto mb-2" }, [
+                        isSearching ? h('div', { className: "p-4 text-center" }, [
+                            h('div', { className: "inline-flex items-center space-x-2" }, [
+                                h('div', { className: "w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" }),
+                                h('span', { className: "text-gray-600" }, "검색 중...")
+                            ])
+                        ]) : h('div', {}, [
+                            searchResults.length === 0 ? h('div', { className: "p-4 text-center text-gray-500" }, "검색 결과가 없습니다. 다른 키워드를 시도해보세요.") :
+                            searchResults.map((result, index) =>
+                                h('button', {
+                                    key: index,
+                                    onClick: () => {
+                                        sendMessage(result.q);
+                                        setSearchResults([]);
+                                    },
+                                    className: "w-full text-left p-4 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 search-result"
+                                }, [
+                                    h('div', { className: "font-medium text-blue-800 mb-1" }, result.q),
+                                    h('div', { className: "text-xs text-blue-600 mb-1" }, `${result.icon} ${result.category}`),
+                                    h('div', { className: "text-sm text-gray-600 line-clamp-2" }, result.a.substring(0, 100) + "...")
+                                ])
+                            )
+                        ])
+                    ])
+                ]),
+
+                // 응급연락처
+                h('div', { className: "bg-red-50 p-4 border-t border-red-200" }, [
+                    h('div', { className: "flex items-center justify-center space-x-2" }, [
+                        h('div', { dangerouslySetInnerHTML: { __html: icons.phone } }),
+                        h('span', { className: "text-sm text-red-800 font-medium" }, "응급시 병원 연락처: 000-000-0000")
+                    ]),
+                    h('div', { className: "text-xs text-red-600 text-center mt-1" }, "24시간 응급상황 대응 | 튜브 관련 응급상황 시 즉시 연락")
+                ])
+            ]);
+        }
+
+        // 앱 렌더링
+        ReactDOM.render(React.createElement(PegCareChatbot), document.getElementById('root'));
+    </script>
+</body>
+</html>

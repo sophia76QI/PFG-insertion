@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PEG 케어 도우미 - 경피적 위루술 환자 챗봇</title>
+    <title>제주한라병원 PEG 케어 도우미 - 경피적 위루술 환자 챗봇</title>
     <meta name="description" content="경피적 위루술 환자와 보호자를 위한 24시간 케어 정보 제공 챗봇">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -134,7 +134,7 @@
                     {
                         q: "시술 전에 어떤 준비가 필요한가요?",
                         a: "시술 전 8시간 이상 금식해야 합니다. 혈액검사를 통해 출혈 위험성을 확인하고, 항생제를 미리 투여합니다. 편안한 옷을 입고 오시면 됩니다.",
-                        keywords: ["준비", "금식", "검사", "시술전"]
+                        keywords: ["준비", "금식", "검사", "시술전","입원", "몇일"]
                     },
                     {
                         q: "시술 시간은 얼마나 걸리나요?",
@@ -143,12 +143,12 @@
                     },
                     {
                         q: "시술 후 언제부터 음식을 먹을 수 있나요?",
-                        a: "시술 후 4-6시간 후부터 물이나 유동식을 천천히 시작할 수 있습니다. 의료진의 지시에 따라 단계적으로 양을 늘려갑니다.",
+                        a: "시술 후 24시간 시간 후부터 물이나 유동식을 천천히 시작할 수 있습니다. 의료진의 지시에 따라 단계적으로 양을 늘려갑니다.",
                         keywords: ["음식", "식사", "언제부터", "시술후"]
                     },
                     {
                         q: "시술 후 입원 기간은 얼마나 되나요?",
-                        a: "일반적으로 1-2일 정도 입원합니다. 환자분의 회복 상태와 합병증 유무에 따라 기간이 달라질 수 있습니다.",
+                        a: "일반적으로 5일 정도 입원합니다. 환자분의 회복 상태와 합병증 유무에 따라 기간이 달라질 수 있습니다.",
                         keywords: ["입원", "기간", "며칠", "언제"]
                     }
                 ]
@@ -159,7 +159,7 @@
                 questions: [
                     {
                         q: "튜브 주변 피부는 어떻게 관리하나요?",
-                        a: "하루 1-2회 깨끗한 물과 순한 비누로 튜브 주변을 부드럽게 닦아주세요. 알코올이나 자극적인 소독제는 피하고, 완전히 건조시킨 후 거즈로 보호해주세요.",
+                        a: "하루 1-2회 깨끗한 물로 튜브 주변을 부드럽게 닦아주세요. 알코올이나 자극적인 소독제는 피하고, 완전히 건조시킨 후 거즈로 보호해주세요.",
                         keywords: ["피부", "관리", "세척", "소독", "거즈"]
                     },
                     {
@@ -633,9 +633,9 @@
                 h('div', { className: "bg-red-50 p-4 border-t border-red-200" }, [
                     h('div', { className: "flex items-center justify-center space-x-2" }, [
                         h('div', { dangerouslySetInnerHTML: { __html: icons.phone } }),
-                        h('span', { className: "text-sm text-red-800 font-medium" }, "응급시 병원 연락처: 000-000-0000")
+                        h('span', { className: "text-sm text-red-800 font-medium" }, "응급시 병원 연락처: 064-740-5000")
                     ]),
-                    h('div', { className: "text-xs text-red-600 text-center mt-1" }, "24시간 응급상황 대응 | 튜브 관련 응급상황 시 즉시 연락")
+                    h('div', { className: "text-xs text-red-600 text-center mt-1" }, "24시간 응급상황 대응 | 튜브 관련 응급 상황시 응급실 진료")
                 ])
             ]);
         }
